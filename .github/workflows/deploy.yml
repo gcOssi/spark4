@@ -27,6 +27,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Debug context
+        run: |
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"     # debe ser gcOssi/spark4
+          echo "GITHUB_REF=$GITHUB_REF"                   # p.ej. refs/heads/main o refs/pull/12/merge
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"     # push, pull_request, workflow_dispatch
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
