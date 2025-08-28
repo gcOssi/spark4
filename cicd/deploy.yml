@@ -1,23 +1,18 @@
 name: Reusable Deploy Staging (ECS + Terraform)
-
 on:
   workflow_call:
-    secrets:
-      AWS_ACCOUNT_ID:
-        required: true
+    secrets: { AWS_ACCOUNT_ID: { required: true } }
     inputs:
       AWS_REGION: { required: true, type: string }
       ECR_REPO_FE: { required: true, type: string }
       ECR_REPO_BE: { required: true, type: string }
-      GH_OWNER:   { required: false, type: string }
-      GH_REPO:    { required: false, type: string }
-
+env:
+  TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
+  TF_VAR_gh_repo: ${{ vars.GH_REPO }}
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
+    permissions: { id-token: write, contents: read }
     env:
       AWS_REGION: ${{ inputs.AWS_REGION }}
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -27,17 +22,12 @@ jobs:
       FE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_REPO_FE }}
       FE_NGINX_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_REPO_FE }}-nginx
       BE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ inputs.AWS_REGION }}.amazonaws.com/${{ inputs.ECR_REPO_BE }}
-      TF_VAR_gh_owner: ${{ inputs.GH_OWNER }}
-      TF_VAR_gh_repo:  ${{ inputs.GH_REPO }}
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
+        with: { role-to-assume: ${{ env.ROLE_TO_ASSUME }}, aws-region: ${{ env.AWS_REGION }} }
       - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.8.5
+        with: { terraform_version: 1.8.5 }
       - name: Terraform Init/Apply
         working-directory: ./infrastructure
         run: |
@@ -50,8 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           for r in "${FE_REPO}" "${BE_REPO}" "${FE_REPO}-nginx"; do
-            aws ecr describe-repositories --repository-names "$r" >/dev/null 2>&1 || \
-            aws ecr create-repository --repository-name "$r" >/dev/null
+            aws ecr describe-repositories --repository-names "$r" >/dev/null 2>&1 ||             aws ecr create-repository --repository-name "$r" >/dev/null
           done
       - name: Build & Push Frontend
         working-directory: ./frontend

@@ -1,19 +1,83 @@
-name: Deploy Staging (launcher)
+name: Deploy Staging
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ROLE_TO_ASSUME: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-github-oidc
+  FE_REPO: ${{ vars.ECR_REPO_FE }}
+  BE_REPO: ${{ vars.ECR_REPO_BE }}
+  FE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_FE }}
+  FE_NGINX_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_FE }}-nginx
+  BE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_BE }}
+  # Pasa GH owner/repo a Terraform (si parametrizaste iam.tf)
+  TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
+  TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
+
 jobs:
-  call-reusable:
+  deploy:
     environment: staging
-    uses: ./cicd/deploy.yml
-    with:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      ECR_REPO_FE: ${{ vars.ECR_REPO_FE }}
-      ECR_REPO_BE: ${{ vars.ECR_REPO_BE }}
-      GH_OWNER:   ${{ vars.GH_OWNER }}
-      GH_REPO:    ${{ vars.GH_REPO }}
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform Init/Apply (create infra)
+        working-directory: ./infrastructure
+        run: |
+          terraform -version
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repositories exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          for r in "${FE_REPO}" "${BE_REPO}" "${FE_REPO}-nginx"; do
+            aws ecr describe-repositories --repository-names "$r" >/dev/null 2>&1 || \
+            aws ecr create-repository --repository-name "$r" >/dev/null
+          done
+
+      - name: Build & Push Frontend
+        working-directory: ./frontend
+        run: |
+          docker build -t "$FE_IMAGE:latest" .
+          docker push "$FE_IMAGE:latest"
+
+      - name: Build & Push Frontend Nginx Auth Sidecar
+        working-directory: ./frontend
+        run: |
+          docker build -t "$FE_NGINX_IMAGE:latest" -f Dockerfile.nginx .
+          docker push "$FE_NGINX_IMAGE:latest"
+
+      - name: Build & Push Backend
+        working-directory: ./backend
+        run: |
+          docker build -t "$BE_IMAGE:latest" .
+          docker push "$BE_IMAGE:latest"
+
+      - name: Terraform Apply (roll services to latest)
+        working-directory: ./infrastructure
+        run: |
+          terraform apply -auto-approve -input=false
