@@ -14,7 +14,6 @@ env:
   FE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_FE }}
   FE_NGINX_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_FE }}-nginx
   BE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/${{ vars.ECR_REPO_BE }}
-  # Pasa GH owner/repo a Terraform (si parametrizaste iam.tf)
   TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
   TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
 
