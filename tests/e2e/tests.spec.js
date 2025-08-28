@@ -1,0 +1,1 @@
+const { test, expect } = require('@playwright/test');test('home shows Frontend OK',async({page})=>{await page.goto('/');await expect(page.locator('h1')).toHaveText(/Frontend OK/i)});test('/api/health ok',async({request})=>{const r=await request.get('/api/health');expect(r.ok()).toBeTruthy();const j=await r.json();expect(j.status).toBe('ok')});

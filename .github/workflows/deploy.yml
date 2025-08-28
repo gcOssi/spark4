@@ -1,0 +1,18 @@
+name: Deploy Staging (launcher)
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+jobs:
+  call-reusable:
+    environment: staging
+    uses: ./cicd/deploy.yml
+    with:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPO_FE: ${{ vars.ECR_REPO_FE }}
+      ECR_REPO_BE: ${{ vars.ECR_REPO_BE }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+    env:
+      TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
+      TF_VAR_gh_repo:  ${{ vars.GH_REPO }}

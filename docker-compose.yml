@@ -1,0 +1,35 @@
+version: "3.9"
+services:
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      - PORT=3000
+    expose:
+      - "3000"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      - PORT=4000
+    expose:
+      - "4000"
+
+  auth-proxy:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.nginx
+    environment:
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-staging}
+      BASIC_AUTH_PASS: ${BASIC_AUTH_PASS:-staging}
+    ports:
+      - "8080:80"
+    depends_on:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/_lb_health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

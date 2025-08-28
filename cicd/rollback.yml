@@ -1,0 +1,43 @@
+name: Reusable Rollback (Terraform Destroy)
+
+on:
+  workflow_call:
+    secrets:
+      AWS_ACCOUNT_ID:
+        required: true
+    inputs:
+      AWS_REGION: { required: true, type: string }
+      GH_OWNER:   { required: true, type: string }
+      GH_REPO:    { required: true, type: string }
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION:     ${{ inputs.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ROLE_TO_ASSUME: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-github-oidc
+      TF_VAR_gh_owner: ${{ inputs.GH_OWNER }}
+      TF_VAR_gh_repo:  ${{ inputs.GH_REPO }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform Init + Destroy
+        working-directory: ./infrastructure
+        run: |
+          terraform init -input=false
+          terraform destroy -auto-approve -input=false

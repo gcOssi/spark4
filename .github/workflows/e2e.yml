@@ -1,0 +1,30 @@
+name: E2E Tests (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      base_url: { description: 'Base URL', required: true }
+      basic_user: { description: 'Basic user', required: false, default: 'staging' }
+      basic_pass: { description: 'Basic pass', required: false, default: 'staging' }
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install Playwright
+        working-directory: ./tests/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps
+      - name: Run E2E
+        working-directory: ./tests/e2e
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url }}
+          BASIC_AUTH_USER: ${{ github.event.inputs.basic_user }}
+          BASIC_AUTH_PASS: ${{ github.event.inputs.basic_pass }}
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: tests/e2e/playwright-report }
