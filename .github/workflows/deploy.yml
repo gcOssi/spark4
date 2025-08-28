@@ -1,8 +1,10 @@
 name: Deploy Staging (launcher)
+
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: {}
+  workflow_dispatch:
+
 jobs:
   call-reusable:
     environment: staging
@@ -11,8 +13,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       ECR_REPO_FE: ${{ vars.ECR_REPO_FE }}
       ECR_REPO_BE: ${{ vars.ECR_REPO_BE }}
+      GH_OWNER:   ${{ vars.GH_OWNER }}
+      GH_REPO:    ${{ vars.GH_REPO }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-    env:
-      TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
-      TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
