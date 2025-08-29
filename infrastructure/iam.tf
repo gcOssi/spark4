@@ -65,7 +65,7 @@ resource "aws_iam_role_policy" "github_permissions" {
         "ecr:*"
       ], Resource = "*" },
       { Effect = "Allow", Action = [
-        "ecs:*", "iam:PassRole", "elasticloadbalancing:*", "cloudwatch:*", "sns:*", "ssm:*", "logs:*", "cloudfront:*", "acm:*", "ec2:*", "route53:*", "s3:*"
+        "ecs:*", "iam:PassRole", "elasticloadbalancing:*", "cloudwatch:*", "sns:*", "ssm:*", "logs:*", "cloudfront:*", "acm:*", "ec2:*", "route53:*", "s3:*","dynamodb:*"
       ], Resource = "*" }
     ]
   })
