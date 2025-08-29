@@ -1,15 +1,71 @@
-name: Rollback Staging (manual)
+name: Rollback Staging
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:   # Ejecuta manualmente desde GitHub Actions
+
+# Permisos OIDC a nivel de workflow
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Vars/Secrets del Environment "staging"
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ROLE_TO_ASSUME: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/staging-github-oidc
+
+  # Si parametrizaste iam.tf con gh_owner/gh_repo (opcional)
+  TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
+  TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
 
 jobs:
-  call-reusable:
+  destroy:
     environment: staging
-    uses: ./cicd/rollback.yml
-    with:
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      GH_OWNER:   ${{ vars.GH_OWNER }}
-      GH_REPO:    ${{ vars.GH_REPO }}
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Context
+        run: |
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "ROLE_TO_ASSUME=${{ env.ROLE_TO_ASSUME }}"
+
+      # Evita que credenciales heredadas rompan OIDC
+      - name: Sanitize any pre-set AWS creds
+        shell: bash
+        run: |
+          unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Assert OIDC creds
+        shell: bash
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform Init
+        working-directory: ./infrastructure
+        run: terraform init -input=false
+
+      # ⚠️ IMPORTANTE:
+      # Si tu state estaba en el runner (local) y no en remoto (S3), este job no tendrá ese state.
+      # 'terraform destroy' destruirá recursos SOLO si tiene el state. Recomendado usar backend S3.
+      # Si NO tienes backend remoto, aún puedes aplicar 'best effort' de destroy si el state existe en el repo.
+      - name: Terraform Destroy (best effort)
+        working-directory: ./infrastructure
+        run: terraform destroy -auto-approve -input=false

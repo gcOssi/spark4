@@ -27,29 +27,63 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Debug context
         run: |
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"     # debe ser gcOssi/spark4
-          echo "GITHUB_REF=$GITHUB_REF"                   # p.ej. refs/heads/main o refs/pull/12/merge
-          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"     # push, pull_request, workflow_dispatch
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "ROLE_TO_ASSUME=${{ env.ROLE_TO_ASSUME }}"
+          echo "Has OIDC URL? ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
+          echo "Has OIDC token var? ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}"
+
+      - name: Sanitize any pre-set AWS creds
+        shell: bash
+        run: |
+          unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Assert OIDC creds are active
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.8.5
 
-      - name: Terraform Init/Apply (create infra)
+      - name: Terraform Init
         working-directory: ./infrastructure
+        run: terraform init -input=false
+
+      - name: Import IAM role if it already exists
+        working-directory: ./infrastructure
+        shell: bash
         run: |
-          terraform -version
-          terraform init -input=false
-          terraform apply -auto-approve -input=false
+          set -euo pipefail
+          ROLE_NAME="staging-github-oidc"
+          if aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+            echo "Found existing role: $ROLE_NAME. Importing into Terraform state if needed..."
+            if ! terraform state show aws_iam_role.github_actions_oidc >/dev/null 2>&1; then
+              terraform import aws_iam_role.github_actions_oidc "$ROLE_NAME"
+            else
+              echo "Role already imported in state."
+            fi
+          else
+            echo "Role does not exist. Terraform will create it."
+          fi
+
+      - name: Terraform Apply (create/update infra)
+        working-directory: ./infrastructure
+        run: terraform apply -auto-approve -input=false
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -83,5 +117,4 @@ jobs:
 
       - name: Terraform Apply (roll services to latest)
         working-directory: ./infrastructure
-        run: |
-          terraform apply -auto-approve -input=false
+        run: terraform apply -auto-approve -input=false
