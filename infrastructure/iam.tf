@@ -29,29 +29,6 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
-# OIDC role for GitHub Actions (replace your org/repo/branch as needed)
-resource "aws_iam_role" "github_actions_oidc" {
-  name = "${var.name_prefix}-github-oidc"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect    = "Allow",
-      Principal = { Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com" },
-      Action    = "sts:AssumeRoleWithWebIdentity",
-      Condition = {
-        StringLike = {
-          "token.actions.githubusercontent.com:sub": [
-          "repo:${var.gh_owner}/${var.gh_repo}:environment:staging",
-          "repo:${var.gh_owner}/${var.gh_repo}:ref:refs/heads/main"
-        ]
-        }
-      }
-    }]
-  })
-  lifecycle {
-    prevent_destroy = true
-  }
-}
 
 data "aws_caller_identity" "current" {}
 
