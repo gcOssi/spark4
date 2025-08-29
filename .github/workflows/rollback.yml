@@ -99,7 +99,7 @@ jobs:
           terraform_version: 1.8.5
 
       # 3) Init con backend remoto (y migra state local si existiera)
-      - name: Terraform Init (S3 backend: choose migrate vs reconfigure)
+      - name: Terraform Init
         working-directory: ./infrastructure
         shell: bash
         run: |
