@@ -5,11 +5,6 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# 👇 Fuerza permisos a nivel de workflow (además del job)
-permissions:
-  id-token: write
-  contents: read
-
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -26,29 +21,23 @@ jobs:
   deploy:
     environment: staging
     runs-on: ubuntu-latest
-    # 👇 también aquí (doble cinturón y tirantes)
     permissions:
       id-token: write
       contents: read
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Debug context
         run: |
-          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"
-          echo "GITHUB_REF=$GITHUB_REF"
-          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
-          echo "ROLE_TO_ASSUME=${{ env.ROLE_TO_ASSUME }}"
-          echo "Has OIDC URL? ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
-          echo "Has OIDC token var? ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}"
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY"     # debe ser gcOssi/spark4
+          echo "GITHUB_REF=$GITHUB_REF"                   # p.ej. refs/heads/main o refs/pull/12/merge
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"     # push, pull_request, workflow_dispatch
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-          audience: sts.amazonaws.com   # explícito
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
