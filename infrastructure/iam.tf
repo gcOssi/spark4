@@ -48,6 +48,9 @@ resource "aws_iam_role" "github_actions_oidc" {
       }
     }]
   })
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 data "aws_caller_identity" "current" {}
