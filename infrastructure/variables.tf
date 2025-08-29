@@ -25,3 +25,14 @@ variable "alarm_email" {
   description = "Email to subscribe to SNS alerts"
   default     = "gcabrera@binarios.cl"
 }
+
+variable "tf_backend_bucket" {
+  type        = string
+  description = "S3 bucket for Terraform remote state"
+}
+
+variable "tf_backend_ddb_table" {
+  type        = string
+  description = "DynamoDB table for Terraform state locking"
+}
+
