@@ -1,26 +1,13 @@
-# Reenviar Authorization al origin (y opcionalmente cookies + querystrings)
-resource "aws_cloudfront_origin_request_policy" "forward_authz" {
-  name = "${var.name_prefix}-forward-authorization"
-  headers_config {
-    header_behavior = "whitelist"
-    headers {
-      items = ["Authorization"]
-    }
-  }
-  cookies_config {
-    cookie_behavior = "all"     # Igual que tenías en forwarded_values (cookies all)
-  }
-  query_strings_config {
-    query_string_behavior = "all"  # Igual que tenías (query_string = true)
-  }
-}
-
-# Política de caché administrada: sin caché (útil con auth)
+# Cache policy administrada: sin caché
 data "aws_cloudfront_cache_policy" "caching_disabled" {
   name = "Managed-CachingDisabled"
 }
 
-# Distribución (usa policies modernas; NO mezclamos forwarded_values)
+# Origin Request Policy administrada que reenvía TODOS los headers (incluye Authorization)
+data "aws_cloudfront_origin_request_policy" "all_viewer" {
+  name = "Managed-AllViewer"
+}
+
 resource "aws_cloudfront_distribution" "this" {
   origin {
     domain_name = aws_lb.this.dns_name
@@ -28,7 +15,7 @@ resource "aws_cloudfront_distribution" "this" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "http-only"   # El ALB está detrás; OK
+      origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
@@ -46,14 +33,14 @@ resource "aws_cloudfront_distribution" "this" {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD"]
 
-    # 🔑 Policies modernas
+    # 👉 Políticas modernas
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = aws_cloudfront_origin_request_policy.forward_authz.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
 
-    compress = true
-    min_ttl  = 0
-    default_ttl = 0
-    max_ttl  = 0
+    compress     = true
+    min_ttl      = 0
+    default_ttl  = 0
+    max_ttl      = 0
   }
 
   restrictions {
