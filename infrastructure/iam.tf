@@ -50,6 +50,8 @@ resource "aws_iam_role" "github_actions_oidc" {
   })
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role_policy" "github_permissions" {
   name = "${var.name_prefix}-github-deploy"
   role = aws_iam_role.github_actions_oidc.id
