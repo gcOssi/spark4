@@ -69,4 +69,7 @@ resource "aws_iam_role_policy" "github_permissions" {
       ], Resource = "*" }
     ]
   })
+  lifecycle {
+    prevent_destroy = true
+  }  
 }
