@@ -29,8 +29,8 @@ env:
   TF_VAR_gh_owner: ${{ vars.GH_OWNER }}
   TF_VAR_gh_repo:  ${{ vars.GH_REPO }}
   TF_VAR_name_prefix: staging
-  TF_VAR_tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
-  TF_VAR_tf_backend_ddb_table: ${{ vars.TF_BACKEND_DDB_TABLE }}
+  TF_VAR_tf_backend_bucket: ${{ secrets.AWS_ACCOUNT_ID }}-${{ vars.GH_REPO }}-staging
+  TF_VAR_tf_backend_ddb_table: tf-locks-${{ vars.GH_REPO }}-staging
 
 jobs:
   deploy:
@@ -108,10 +108,27 @@ jobs:
         with:
           terraform_version: 1.8.5
 
-      - name: Terraform Init (S3 backend, migrate if local)
+      - name: Terraform Init (S3 backend: choose migrate vs reconfigure)
         working-directory: ./infrastructure
+        shell: bash
         run: |
-          terraform init -input=false -reconfigure -migrate-state \
+          set -euo pipefail
+
+          echo "Checking if remote state object exists in S3..."
+          if aws s3api head-object --bucket "${TF_BACKEND_BUCKET}" --key "${TF_BACKEND_KEY}" >/dev/null 2>&1; then
+            echo "Remote state FOUND → using -reconfigure"
+            INIT_FLAGS="-reconfigure"
+          else
+            if [ -f "terraform.tfstate" ]; then
+              echo "Local state FOUND and remote state MISSING → using -migrate-state"
+              INIT_FLAGS="-migrate-state"
+            else
+              echo "No local state and no remote state → plain init (no special flags)"
+              INIT_FLAGS=""
+            fi
+          fi
+
+          terraform init -input=false ${INIT_FLAGS} \
             -backend-config="bucket=${TF_BACKEND_BUCKET}" \
             -backend-config="key=${TF_BACKEND_KEY}" \
             -backend-config="region=${AWS_REGION}" \
