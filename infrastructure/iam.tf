@@ -65,31 +65,3 @@ resource "aws_iam_role_policy" "github_permissions" {
     ]
   })
 }
-
-resource "aws_iam_role_policy" "tf_backend_access" { 
-  name = "${var.name_prefix}-tfstate-access" 
-  role = aws_iam_role.github_actions_oidc.id 
-  policy = jsonencode({ 
-    Version = "2012-10-17", 
-    Statement = [ 
-      { Sid = "S3StateRW", 
-        Effect = "Allow", 
-        Action = [ 
-          "s3:ListBucket", 
-          "s3:GetBucketLocation", 
-          "s3:PutObject", 
-          "s3:GetObject", 
-          "s3:DeleteObject" 
-          ], Resource = [ 
-            "arn:aws:s3:::${var.tf_backend_bucket}", 
-            "arn:aws:s3:::${var.tf_backend_bucket}/*" ] }, { 
-              Sid = "DDBLocksRW", 
-              Effect = "Allow", 
-              Action = [ 
-                "dynamodb:DescribeTable", 
-                "dynamodb:GetItem", 
-                "dynamodb:PutItem", 
-                "dynamodb:DeleteItem" 
-                ], Resource = 
-                  "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.tf_backend_ddb_table}" } 
-                  ] }) }
