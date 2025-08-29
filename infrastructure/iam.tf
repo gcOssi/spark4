@@ -40,7 +40,7 @@ resource "aws_iam_role" "github_actions_oidc" {
       Action    = "sts:AssumeRoleWithWebIdentity",
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" : "repo:${var.gh_owner}/${var.gh_repo}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" : "repo:${var.gh_owner}/${var.gh_repo}:environment:staging:ref:refs/heads/main"
         }
       }
     }]
